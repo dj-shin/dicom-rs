@@ -22,7 +22,8 @@ use encoding::all::{GB18030, ISO_8859_1, ISO_8859_2, ISO_8859_3, ISO_8859_4, ISO
 use encoding::{DecoderTrap, EncoderTrap, Encoding, RawDecoder, StringWriter};
 use snafu::{Backtrace, Snafu};
 use std::borrow::Cow;
-use std::fmt::Debug;
+use std::cmp::Ordering;
+use std::fmt::{Debug, Formatter};
 
 /// An error type for text encoding issues.
 #[derive(Debug, Snafu)]
@@ -123,8 +124,33 @@ where
 #[deprecated(since = "0.5.0", note = "Use `SpecificCharacterSet` instead")]
 pub type DynamicTextCodec = Box<dyn TextCodec>;
 
+pub struct CustomTextCodec {
+    codec: Box<dyn TextCodec>,
+}
+
+impl PartialEq for CustomTextCodec {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
+}
+
+impl Eq for CustomTextCodec {
+}
+
+impl PartialOrd for CustomTextCodec {
+    fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
+        None
+    }
+}
+
+impl Debug for CustomTextCodec {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CustomTextCodec")
+    }
+}
+
 /// An enum type for all currently supported character sets.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Default, Eq, PartialEq, PartialOrd)]
 #[non_exhaustive]
 pub enum SpecificCharacterSet {
     /// **ISO-IR 6**: the default character set.
@@ -149,6 +175,7 @@ pub enum SpecificCharacterSet {
     /// **GB18030**: The Simplified Chinese character set.
     Gb18030,
     // Support for more text encodings is tracked in issue #40.
+    Custom(CustomTextCodec),
 }
 
 impl SpecificCharacterSet {
@@ -191,6 +218,7 @@ impl SpecificCharacterSet {
             SpecificCharacterSet::IsoIr144 => Some(Box::new(IsoIr144CharacterSetCodec)),
             SpecificCharacterSet::IsoIr192 => Some(Box::new(Utf8CharacterSetCodec)),
             SpecificCharacterSet::Gb18030 => Some(Box::new(Gb18030CharacterSetCodec)),
+            SpecificCharacterSet::Custom(ctc) => Some(ctc.codec),
         }
     }
 }
@@ -206,6 +234,7 @@ impl TextCodec for SpecificCharacterSet {
             SpecificCharacterSet::IsoIr144 => "ISO_IR 144",
             SpecificCharacterSet::IsoIr192 => "ISO_IR 192",
             SpecificCharacterSet::Gb18030 => "GB18030",
+            SpecificCharacterSet::Custom(_) => "CUSTOM",
         }
     }
 
@@ -219,6 +248,7 @@ impl TextCodec for SpecificCharacterSet {
             SpecificCharacterSet::IsoIr144 => IsoIr144CharacterSetCodec.decode(text),
             SpecificCharacterSet::IsoIr192 => Utf8CharacterSetCodec.decode(text),
             SpecificCharacterSet::Gb18030 => Gb18030CharacterSetCodec.decode(text),
+            SpecificCharacterSet::Custom(ctc) => ctc.codec.decode(text),
         }
     }
 
@@ -232,6 +262,7 @@ impl TextCodec for SpecificCharacterSet {
             SpecificCharacterSet::IsoIr144 => IsoIr144CharacterSetCodec.encode(text),
             SpecificCharacterSet::IsoIr192 => Utf8CharacterSetCodec.encode(text),
             SpecificCharacterSet::Gb18030 => Gb18030CharacterSetCodec.encode(text),
+            SpecificCharacterSet::Custom(ctc) => ctc.codec.encode(text),
         }
     }
 }
