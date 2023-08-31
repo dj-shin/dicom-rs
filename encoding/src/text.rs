@@ -125,7 +125,7 @@ where
 pub type DynamicTextCodec = Box<dyn TextCodec>;
 
 pub struct CustomTextCodec {
-    codec: Box<dyn TextCodec>,
+    pub codec: Box<dyn TextCodec>,
 }
 
 impl PartialEq for CustomTextCodec {
